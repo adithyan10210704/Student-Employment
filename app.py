@@ -1,42 +1,42 @@
-import pandas as pd
+import gradio as gr
 import pickle
-from sklearn.neural_network import MLPClassifier
-from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
+import numpy as np
 
-# Load dataset
-df = pd.read_csv("dataset.csv")
+with open("model.pkl", "rb") as f:
+    model = pickle.load(f)
 
-# Drop any missing values
-df.dropna(inplace=True)
+with open("scaler.pkl", "rb") as f:
+    scaler = pickle.load(f)
 
-# Extract features and target variable
-X = df.iloc[:, 1:-1]  # Exclude first column if it's an index
-y = df.iloc[:, -1].map({"Employable": 1, "LessEmployable": 0})
+def predict_employability(*features):
+    features = np.array(features).reshape(1, -1)
+    features_scaled = scaler.transform(features)
+    prediction = model.predict(features_scaled)
+    return "Congrats, You're Employable!" if prediction[0] == 1 else "Sorry, Better luck next time"
 
-# Normalize features
-scaler = StandardScaler()
-X_scaled = scaler.fit_transform(X)
+with gr.Blocks() as demo:
+    gr.Markdown("# Student Employability Prediction")
+    gr.Markdown(
+        "Enter your ratings for the given parameters (1-5) using the sliders below. "
+        "Click 'Submit' to check if the student is **Employable** or **Less Employable**."
+    )
 
-# Split data into training and test sets
-X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
+    with gr.Row():
+        with gr.Column():
+            sliders = [
+                gr.Slider(1, 5, value=3, step=1, label="General Appearance"),
+                gr.Slider(1, 5, value=3, step=1, label="Manner of Speaking"),
+                gr.Slider(1, 5, value=3, step=1, label="Physical Condition"),
+                gr.Slider(1, 5, value=3, step=1, label="Mental Alertness"),
+                gr.Slider(1, 5, value=3, step=1, label="Self-Confidence"),
+                gr.Slider(1, 5, value=3, step=1, label="Ability to Present Ideas"),
+                gr.Slider(1, 5, value=3, step=1, label="Communication Skills"),
+                gr.Slider(1, 5, value=3, step=1, label="Student Performance Rating"),
+            ]
+        with gr.Column():
+            output = gr.Textbox(label="Employability Status")
 
-# Define and train model
-model = MLPClassifier(hidden_layer_sizes=(10, 10), activation='relu', max_iter=1000, random_state=42)
-model.fit(X_train, y_train)
+    submit = gr.Button("Submit")
+    submit.click(predict_employability, inputs=sliders, outputs=output)
 
-# Evaluate model
-train_accuracy = accuracy_score(y_train, model.predict(X_train))
-test_accuracy = accuracy_score(y_test, model.predict(X_test))
-print(f"Training Accuracy: {train_accuracy:.2f}")
-print(f"Test Accuracy: {test_accuracy:.2f}")
-
-# Save model and scaler
-with open("model.pkl", "wb") as model_file:
-    pickle.dump(model, model_file)
-
-with open("scaler.pkl", "wb") as scaler_file:
-    pickle.dump(scaler, scaler_file)
-
-print("Model and scaler saved successfully!")
+demo.launch()
